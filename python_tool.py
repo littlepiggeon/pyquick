@@ -5,9 +5,9 @@ import os
 import threading
 import requests
 import sv_ttk
-
+import time
+import wget
 VERSIONS = [
-    "3.13.0a2",
     "3.12.0",
     "3.11.0",
     "3.10.0",
@@ -17,17 +17,6 @@ VERSIONS = [
     "3.6.0",
     "3.5.0"
 ]
-def check_python_installation():
-    try:
-        subprocess.check_output(["python", "--version"])
-    except Exception as e:
-        status_label.config(text="Python is not installed.")
-        download_button.config(state="disabled")
-        pip_upgrade_button.config(state="disabled")
-        install_button.config(state="disabled")
-        uninstall_button.config(state="disabled")
-        package_label.config(state="disabled")
-
 def select_destination():
     destination_path = filedialog.askdirectory()
     if destination_path:
@@ -50,20 +39,21 @@ def download_file(selected_version, destination_path):
 
     try:
         url = f"https://www.python.org/ftp/python/{selected_version}/python-{selected_version}-amd64.exe"
-        # Use wget or other means to download
+        # 使用wget下载文件
+        wget.download(url, out=destination, bar=progress_bar_hook)
         status_label.config(text="Download Complete!")
     except Exception as e:
         status_label.config(text=f"Download Failed: {str(e)}")
 
 def check_pip_version():
     try:
-        pip_version = subprocess.check_output(["pip", "--version"]).decode().strip().split()[1]
+        pip_version = subprocess.check_output(["pip", "--version"], creationflags=subprocess.CREATE_NO_WINDOW).decode().strip().split()[1]
         r = requests.get("https://pypi.org/pypi/pip/json")
         latest_version = r.json()["info"]["version"]
 
         if pip_version != latest_version:
             status_label.config(text=f"Current pip version: {pip_version}\nLatest pip version: {latest_version}\nUpdating pip...")
-            subprocess.run(["python", "-m", "pip", "install", "--upgrade", "pip"])
+            subprocess.run(["python", "-m", "pip", "install", "--upgrade", "pip"], creationflags=subprocess.CREATE_NO_WINDOW)
             status_label.config(text="pip has been updated!")
         else:
             status_label.config(text=f"pip is up to date: {pip_version}")
@@ -83,7 +73,7 @@ def download_selected_version():
 
 def upgrade_pip():
     try:
-        subprocess.check_output(["python", "--version"])
+        subprocess.check_output(["python", "--version"], creationflags=subprocess.CREATE_NO_WINDOW)
         check_pip_version()
     except FileNotFoundError:
         status_label.config(text="Python is not installed.")
@@ -92,13 +82,13 @@ def upgrade_pip():
 
 def install_package():
     try:
-        subprocess.check_output(["python", "--version"])
+        subprocess.check_output(["python", "--version"], creationflags=subprocess.CREATE_NO_WINDOW)
         package_name = package_entry.get()
         
         def install_package_thread():
             try:
-                result = subprocess.run(["python", "-m", "pip", "install", package_name], capture_output=True, text=True)
-                if result.returncode == 0:
+                result = subprocess.run(["python", "-m", "pip", "install", package_name], capture_output=True, text=True, creationflags=subprocess.CREATE_NO_WINDOW)
+                if "Successfully installed" in result.stdout:
                     status_label.config(text=f"Package '{package_name}' has been installed successfully!")
                 else:
                     status_label.config(text=f"Error installing package '{package_name}': {result.stderr}")
@@ -114,15 +104,17 @@ def install_package():
 
 def uninstall_package():
     try:
-        subprocess.check_output(["python", "--version"])
+        subprocess.check_output(["python", "--version"], creationflags=subprocess.CREATE_NO_WINDOW)
         package_name = package_entry.get()
         
         try:
-            installed_packages = subprocess.check_output(["python", "-m", "pip", "list", "--format=columns"], text=True)
+            installed_packages = subprocess.check_output(["python", "-m", "pip", "list", "--format=columns"], text=True, creationflags=subprocess.CREATE_NO_WINDOW)
             if package_name.lower() in installed_packages.lower():
-                result = subprocess.run(["python", "-m", "pip", "uninstall", "-y", package_name], capture_output=True, text=True)
-                if result.returncode == 0:
+                result = subprocess.run(["python", "-m", "pip", "uninstall", "-y", package_name], capture_output=True, text=True, creationflags=subprocess.CREATE_NO_WINDOW)
+                if "Successfully uninstalled" in result.stdout:
                     status_label.config(text=f"Package '{package_name}' has been uninstalled successfully!")
+                else:
+                    status_label.config(text=f"Error uninstalling package '{package_name}': {result.stderr}")
             else:
                 status_label.config(text=f"Package '{package_name}' is not installed.")
         except Exception as e:
@@ -132,10 +124,18 @@ def uninstall_package():
     except Exception as e:
         status_label.config(text=f"Error: {str(e)}")
 
+def check_python_installation():
+    try:
+        subprocess.check_output(["python", "--version"], creationflags=subprocess.CREATE_NO_WINDOW)
+    except Exception as e:
+        status_label.config(text="Python is not installed.")
+        pip_upgrade_button.config(state="disabled")
+        install_button.config(state="disabled")
+        uninstall_button.config(state="disabled")
 root = tk.Tk()
 root.title("Python Downloader")
 
-# ... (其他界面组件和布局的代码，略去)
+
 
 
 root.iconbitmap('python.ico')
