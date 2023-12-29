@@ -23,3 +23,12 @@ python -m pip install --upguade pip
 任何人都可以查看那简单的源代码（onefile）[code](https://github.com/githubtohaoyangli/python_tool)
 也可以用[pyinstaller](https://github.com/pyinstaller/pyinstaller);[cz_freeze(本人)](https://github.com/marcelotduarte/cx_Freeze)等打包！
 但不准商业用途！！！
+# cx_feeeze打包
+1. 为什么不建议pyinstaller打包？  
+因为打包工序复杂，并且不支持sv_ttk
+2. cx_freeze打包  
+准备源码，cx_freeze以及python.ico文件
+```commandline
+pip install cx_freeze
+```
+
