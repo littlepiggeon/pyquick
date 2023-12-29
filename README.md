@@ -31,4 +31,17 @@ python -m pip install --upguade pip
 ```commandline
 pip install cx_freeze
 ```
+输入打包命令  
+````commandline
+cxfreeze python_tool.py --base-name="win32gui" --icon "python.ico"
+````
+（代码隐藏控制台）  
+打包后如下： 
+![Image text](https://github.com/githubtohaoyangli/python_tool/blob/main/image/exe.png?raw=true)  
+但仅仅这样还不能解决:  
+![Image text](https://github.com/githubtohaoyangli/python_tool/blob/main/image/ERROR.png?raw=true)  
+加入python.ico文件即可  
+![Image text](https://github.com/githubtohaoyangli/python_tool/blob/main/image/right.png?raw=true)  
+成功打包
+若有更多问题，请访问[cz_freeze](https://github.com/marcelotduarte/cx_Freeze).
 
