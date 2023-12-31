@@ -44,5 +44,5 @@ cxfreeze python_tool.py --base-name="win32gui" --icon "python.ico"
 任何人都可以查看那简单的源代码（onefile）[code](https://github.com/githubtohaoyangli/python_tool)
 也可以用[pyinstaller](https://github.com/pyinstaller/pyinstaller);[cz_freeze(本人)](https://github.com/marcelotduarte/cx_Freeze)等打包！
 但不准商业用途！！！
-最后，本软件开发非常活跃，展示图片可能已经过时
+最后，本软件开发非常活跃，展示图片可能已经过时(2023/12/31：1.3 debug已发布，图片于2024/1/7更新)
 
