@@ -619,7 +619,7 @@ def install_from_requirements():
 def check_python_installation_a():
     try:
         subprocess.check_output(["python", "--version"])
-    except subprocess.CalledProcessError:
+    except FileNotFoundError:
         status_label_pip.config(text="Python is not installed.")
         status_label_python.config(text="Python is not installed.")
         button_pip_upgrade.config(state="disabled")
