@@ -46,4 +46,11 @@ cxfreeze python_tool.py --base-name="win32gui" --icon "python.ico"
 但不准商业用途！！！
 最后，本软件开发非常活跃，展示图片可能已经过时(2023/12/31：1.3 debug已发布，图片于2024/1/7更新)  
 ![Image text](https://github.com/githubtohaoyangli/python_tool/blob/main/image/python.ico?raw=true)
-
+> [!IMPORTANT]
+> 即将支持macOS版本，并将macOS控制在10.13.6及以上（macOS High Sierra），Windows 10
+# 即将推出
+- [ ] pip保存包requirements.txt---2.0
+- [ ] macOS版本---1.0.2
+- [ ] 自动进行更新---1.1.0
+>[!TIP]
+>如果需要更新，最好使用离线模式。
