@@ -50,7 +50,7 @@ cxfreeze python_tool.py --base-name="win32gui" --icon "python.ico"
 > 即将支持macOS版本，并将macOS控制在10.13.6及以上（macOS High Sierra），Windows 10
 # 即将推出
 - [ ] pip保存包requirements.txt---2.0
-- [ ] macOS版本---1.0.2
+- [x] macOS版本---1.0.2
 - [ ] 自动进行更新---1.1.0
 >[!TIP]
->如果需要更新，最好使用离线模式。
+>如果需要更新，最好使用离线模式。(devloper推出)
