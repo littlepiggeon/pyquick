@@ -16,7 +16,7 @@ jobs:
     runs-on: macos-latest
     steps:
     - name: check
-      uses: actions/python_tool@main-mac
+      uses: actions/checkout@v4
     - name: install from requirements.txt
       run: |
         python -m pip install --upgrade pip
