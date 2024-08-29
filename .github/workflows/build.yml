@@ -3,9 +3,9 @@ name: CI Build(macos)
 
 on:
   push:
-    branches: ["main-mac"]
+    branches: ["main"]
   pull_request:
-    branches: ["main-mac"]
+    branches: ["main"]
   check_run:
     types: [ rerequested, completed ]
 
