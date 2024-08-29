@@ -20,7 +20,7 @@ jobs:
         python-version: [3.12]
     steps:
     - name: checkout
-      uses: actions/checkout@main-mac
+      uses: actions/checkout
     - name: Set up Python ${{ matrix.python-version }}
       uses: actions/setup-python@v3
       with:
