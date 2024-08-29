@@ -12,13 +12,13 @@ on:
 
 
 jobs:
-  build:
+  build-and-deploy:
     runs-on: macos-latest
     strategy:
       max-parallel: 4
       matrix:
         python-version: [3.12]
-  steps:
+    steps:
     - name: checkout
       uses: actions/checkout@main-mac
     - name: Set up Python ${{ matrix.python-version }}
