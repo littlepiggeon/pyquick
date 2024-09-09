@@ -9,6 +9,7 @@ import time
 import wget
 import zipfile
 import shutil
+requests.packages.urllib3.disable_warnings()
 my_path=os.getcwd()
 if os.path.exists(f"{my_path}\\saved")==False:
     os.mkdir(f"{my_path}\\saved")
@@ -54,14 +55,16 @@ def download_file(selected_version, destination_path):
 
 def check_pip_version():
     try:
-        pip_version = subprocess.check_output(["pip", "--version"], creationflags=subprocess.CREATE_NO_WINDOW)
-        r = requests.get("https://pypi.org/pypi/pip/json")
+        #.decode().strip().split()[1]
+        pip_version = subprocess.check_output(["pip", "--version"], creationflags=subprocess.CREATE_NO_WINDOW).decode().strip().split()[1]
+        print(pip_version)
+        r = requests.get("https://pypi.org/pypi/pip/json",verify=False)
         latest_version = r.json()["info"]["version"]
 
         if pip_version != latest_version:
             status_label.config(text=f"Current pip version: {pip_version}\nLatest pip version: {latest_version}\nUpdating pip...")
             subprocess.run(["python", "-m", "pip", "install", "--upgrade", "pip"], creationflags=subprocess.CREATE_NO_WINDOW)
-            status_label.config(text="pip has been updated!")
+            status_label.config(text=f"pip has been updated!{latest_version}")
         else:
             status_label.config(text=f"pip is up to date: {pip_version}")
     except Exception as e:
