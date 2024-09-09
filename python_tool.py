@@ -54,7 +54,7 @@ def download_file(selected_version, destination_path):
 
 def check_pip_version():
     try:
-        pip_version = subprocess.check_output(["pip", "--version"], creationflags=subprocess.CREATE_NO_WINDOW).decode().strip().split()[1]
+        pip_version = subprocess.check_output(["pip", "--version"], creationflags=subprocess.CREATE_NO_WINDOW)
         r = requests.get("https://pypi.org/pypi/pip/json")
         latest_version = r.json()["info"]["version"]
 
@@ -81,7 +81,8 @@ def download_selected_version():
 def upgrade_pip():
     try:
         subprocess.check_output(["python", "--version"], creationflags=subprocess.CREATE_NO_WINDOW)
-        check_pip_version()
+        upthread= threading.Thread(target=check_pip_version,daemon=True)
+        upthread.start()
     except FileNotFoundError:
         status_label.config(text="Python is not installed.")
     except Exception as e:
@@ -225,12 +226,12 @@ def update_pt():
         status_label.config(text=f"Cannot update:{str(a)}")
         root.after(2000,clear)
 root = tk.Tk()
-root.title("Python Downloader")
+root.title("Python_Tool")
 
 
 
 
-root.iconbitmap('old.ico')
+root.iconbitmap('python_tool.ico')
 frame = ttk.Frame(root, padding="20")
 frame.grid(row=0, column=0)
 
