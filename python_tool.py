@@ -235,9 +235,10 @@ root.title("Python_Tool")
 
 
 root.iconbitmap('python_tool.ico')
+note=ttk.Notebook(root)
 frame = ttk.Frame(root, padding="20")
 frame.grid(row=0, column=0)
-
+note.add(frame,text="python_tool")
 version_label = ttk.Label(frame, text="Select Python Version:")
 version_label.grid(row=0, column=0, pady=10)
 
