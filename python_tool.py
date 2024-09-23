@@ -239,6 +239,7 @@ note=ttk.Notebook(root)
 frame = ttk.Frame(root, padding="20")
 frame.grid(row=0, column=0)
 note.add(frame,text="python_tool")
+note.grid(padx=5,pady=10,row=0,column=0)
 version_label = ttk.Label(frame, text="Select Python Version:")
 version_label.grid(row=0, column=0, pady=10)
 
