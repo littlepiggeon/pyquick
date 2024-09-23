@@ -238,9 +238,9 @@ root.iconbitmap('python_tool.ico')
 note=ttk.Notebook(root)
 
 frame = ttk.Frame(root)
-
 framea=ttk.Frame(root)
-note.add(frame,text="python_tool")
+note.add(frame,text="python download")
+note.add(framea,text="pip")
 note.grid(padx=5,pady=10,row=0,column=0)
 version_label = ttk.Label(frame, text="Select Python Version:")
 version_label.grid(row=0, column=0, pady=10)
