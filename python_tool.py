@@ -166,68 +166,7 @@ def load_theme():
         sv_ttk.set_theme("light")
 
 
-def update_pt():
-    try:
-        try:
-            #https://github.com/githubtohaoyangli/python_tool_update/releases/download/1.x/version.txt
-            my_version="1.0.2"
-            if os.path.exists(f"{my_path}\\saved\\update"):
-                shutil.rmtree(f"{my_path}\\saved\\update")
-            os.mkdir(f"{my_path}\\saved\\update")
-            ge="https://github.com/githubtohaoyangli/python_tool_update/releases/download/1.x/version.txt"
-            r=requests.get(ge)
-            status_label.config(text="Getting....")
-            with open(f"{my_path}\\saved\\update\\version.txt","wb")as down:
-                down.write(r.content)
-            with open (f"{my_path}\\saved\\update\\version.txt","r") as re:
-                latest_version=re.read()
-            if latest_version > my_version:
-                try:
-                    os.remove(f"{my_path}\\saved\\update\\version.txt")
-                    #https://github.com/githubtohaoyangli/python_tool/releases/download/1.0.1/python_tool.exe
-                    url=f"https://github.com/githubtohaoyangli/python_tool/releases/download/{latest_version}/python_tool_mac.zip"
-                    file_name = url.split("/")[-1]
-                    
-                    do=requests.get(url,stream=True)
-                    os.mkdir(f"{my_path}\\saved\\update\\soc")
-                    with open(f"{my_path}\\saved\\update\\soc\\{file_name}", "wb") as file:
-                        downloaded = 0
-                        chunk_size = 1024*1024
-                        file_size = int(do.headers.get('content-length', 0))
-                        for data in do.iter_content(chunk_size=chunk_size):
-                            #nonlocal start_time
-                            file.write(data)
-                            downloaded += len(data)
-                            percentage = (downloaded / file_size) * 100
-                            status_label.config(text=f"Downloading: {percentage:.2f}%")
-                            status_label.update()
-                    f=zipfile.ZipFile(f"{my_path}\\saved\\update\\soc\\python_tool_windows.zip","r")
-                    status_label.config(text="Extracting...")
-                    f.extractall()
-                    time.sleep(0.5)
-                    for i in range(5):
-                        a=5
-                        status_label.config(text=f"You're getting ready! {a}seconds.....,then restart.")
-                        time.sleep(1)
-                        a-=1
-                        status_label.update()
-                    a=os.getcwd()
-                    b=a+"\\saved\\update\\soc"
-                    os.system(f"cd {b}")
-                    os.system("update.exe")
-                    exit(0)
-                except Exception as ea:
-                    status_label.config(text=f"Download/Install Failed: {str(ea)}")
-                    root.after(2000,clear)
-            else:
-                status_label.config(text="python_tool is up to date!")
-                root.after(2000,clear)
-        except Exception as e:
-            status_label.config(text=f"Getting Failed:{str(e)}")
-            root.after(2000,clear)
-    except Exception as a:
-        status_label.config(text=f"Cannot update:{str(a)}")
-        root.after(2000,clear)
+
 root = tk.Tk()
 root.title("Python_Tool")
 
@@ -262,21 +201,21 @@ select_button.grid(row=1, column=2, pady=10)
 download_button = ttk.Button(frame, text="Download Selected Version", command=download_selected_version)
 download_button.grid(row=2, column=0, columnspan=3, pady=10)
 
-pip_upgrade_button = ttk.Button(frame, text="Upgrade pip", command=upgrade_pip)
-pip_upgrade_button.grid(row=3, column=0, columnspan=3, pady=10)
+pip_upgrade_button = ttk.Button(framea, text="Upgrade pip", command=upgrade_pip)
+pip_upgrade_button.grid(row=0, column=0, columnspan=3, pady=10)
 upgrade_pip_button = pip_upgrade_button  # Alias for disabling/enabling later
 
-package_label = ttk.Label(frame, text="Enter Package Name:")
-package_label.grid(row=4, column=0, pady=10)
+package_label = ttk.Label(framea, text="Enter Package Name:")
+package_label.grid(row=1, column=0, pady=10,padx=10)
 
-package_entry = ttk.Entry(frame, width=40)
-package_entry.grid(row=4, column=1, pady=10)
+package_entry = ttk.Entry(framea, width=40)
+package_entry.grid(row=1, column=1, pady=10)
 
-install_button = ttk.Button(frame, text="Install Package", command=install_package)
-install_button.grid(row=5, column=0, columnspan=3, pady=10)
+install_button = ttk.Button(framea, text="Install Package", command=install_package)
+install_button.grid(row=2, column=0, columnspan=3, pady=10)
 
-uninstall_button = ttk.Button(frame, text="Uninstall Package", command=uninstall_package)
-uninstall_button.grid(row=6, column=0, columnspan=3, pady=10)
+uninstall_button = ttk.Button(framea, text="Uninstall Package", command=uninstall_package)
+uninstall_button.grid(row=3, column=0, columnspan=3, pady=10)
 
 progress_bar = ttk.Progressbar(frame, orient='horizontal', length=300, mode='determinate')
 progress_bar.grid(row=8, column=0, columnspan=3, pady=10)
@@ -285,7 +224,7 @@ themes = ttk.Checkbutton(root, text="dark mode", variable=switch, style="Switch.
 themes.grid()
 status_label = ttk.Label(frame, text="", padding="10")
 status_label.grid(row=9, column=0, columnspan=3)
-update_b=ttk.Button(frame,text="update python_tool",command=update_pt)
+update_b=ttk.Button(frame,text="update python_tool")
 update_b.grid(row=7,column=0,columnspan=3,pady=10)
 load_theme()
 # Set sv_ttk theme
