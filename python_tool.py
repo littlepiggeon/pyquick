@@ -226,6 +226,7 @@ status_label = ttk.Label(frame, text="", padding="10")
 status_label.grid(row=9, column=0, columnspan=3)
 update_b=ttk.Button(frame,text="update python_tool")
 update_b.grid(row=7,column=0,columnspan=3,pady=10)
+update_b.config(state="disabled")
 load_theme()
 # Set sv_ttk theme
 switch_theme()
