@@ -25,6 +25,7 @@ VERSIONS = [
 ]
 def clear():
     status_label.config(text="")
+    package_label.config(text="")
 def select_destination():
     destination_path = filedialog.askdirectory()
     if destination_path:
@@ -62,13 +63,13 @@ def check_pip_version():
         latest_version = r.json()["info"]["version"]
 
         if pip_version != latest_version:
-            status_label.config(text=f"Current pip version: {pip_version}\nLatest pip version: {latest_version}\nUpdating pip...")
+            package_label.config(text=f"Current pip version: {pip_version}\nLatest pip version: {latest_version}\nUpdating pip...")
             subprocess.run(["python", "-m", "pip", "install", "--upgrade", "pip"], creationflags=subprocess.CREATE_NO_WINDOW)
-            status_label.config(text=f"pip has been updated!{latest_version}")
+            package_label.config(text=f"pip has been updated!{latest_version}")
         else:
-            status_label.config(text=f"pip is up to date: {pip_version}")
+            package_label.config(text=f"pip is up to date: {pip_version}")
     except Exception as e:
-        status_label.config(text=f"Error: {str(e)}")
+        package_label.config(text=f"Error: {str(e)}")
 
 def download_selected_version():
     selected_version = version_combobox.get()
@@ -87,9 +88,9 @@ def upgrade_pip():
         upthread= threading.Thread(target=check_pip_version,daemon=True)
         upthread.start()
     except FileNotFoundError:
-        status_label.config(text="Python is not installed.")
+        package_label.config(text="Python is not installed.")
     except Exception as e:
-        status_label.config(text=f"Error: {str(e)}")
+        package_label.config(text=f"Error: {str(e)}")
 
 def install_package():
     try:
@@ -99,19 +100,22 @@ def install_package():
         def install_package_thread():
             try:
                 result = subprocess.run(["python", "-m", "pip", "install", package_name], capture_output=True, text=True, creationflags=subprocess.CREATE_NO_WINDOW)
+                installed=subprocess.check_output(["python", "-m", "pip", "list", "--format=columns"], text=True, creationflags=subprocess.CREATE_NO_WINDOW)
                 if "Successfully installed" in result.stdout:
-                    status_label.config(text=f"Package '{package_name}' has been installed successfully!")
+                    package_label.config(text=f"Package '{package_name}' has been installed successfully!")
+                elif package_name.lower() in installed.lower():
+                    package_label.config(text=f"Package {package_name} is already installed.")
                 else:
-                    status_label.config(text=f"Error installing package '{package_name}': {result.stderr}")
+                    package_label.config(text=f"Error installing package '{package_name}': {result.stderr}")
             except Exception as e:
-                status_label.config(text=f"Error installing package '{package_name}': {str(e)}")
+                package_label.config(text=f"Error installing package '{package_name}': {str(e)}")
         
         install_thread = threading.Thread(target=install_package_thread)
         install_thread.start()
     except FileNotFoundError:
-        status_label.config(text="Python is not installed.")
+        package_label.config(text="Python is not installed.")
     except Exception as e:
-        status_label.config(text=f"Error: {str(e)}")
+        package_label.config(text=f"Error: {str(e)}")
 
 def uninstall_package():
     try:
@@ -123,17 +127,19 @@ def uninstall_package():
             if package_name.lower() in installed_packages.lower():
                 result = subprocess.run(["python", "-m", "pip", "uninstall", "-y", package_name], capture_output=True, text=True, creationflags=subprocess.CREATE_NO_WINDOW)
                 if "Successfully uninstalled" in result.stdout:
-                    status_label.config(text=f"Package '{package_name}' has been uninstalled successfully!")
+                    package_label.config(text=f"Package '{package_name}' has been uninstalled successfully!")
                 else:
-                    status_label.config(text=f"Error uninstalling package '{package_name}': {result.stderr}")
+                    package_label.config(text=f"Error uninstalling package '{package_name}': {result.stderr}")
             else:
-                status_label.config(text=f"Package '{package_name}' is not installed.")
+                package_label.config(text=f"Package '{package_name}' is not installed.")
+            install_thread = threading.Thread(target=uninstall_package)
+            install_thread.start()
         except Exception as e:
-            status_label.config(text=f"Error uninstalling package '{package_name}': {str(e)}")
+            package_label.config(text=f"Error uninstalling package '{package_name}': {str(e)}")
     except FileNotFoundError:
-        status_label.config(text="Python is not installed.")
+        package_label.config(text="Python is not installed.")
     except Exception as e:
-        status_label.config(text=f"Error: {str(e)}")
+        package_label.config(text=f"Error: {str(e)}")
 
 def check_python_installation():
     try:
@@ -220,6 +226,8 @@ install_button.grid(row=2, column=0, columnspan=3, pady=10)
 uninstall_button = ttk.Button(framea, text="Uninstall Package", command=uninstall_package)
 uninstall_button.grid(row=3, column=0, columnspan=3, pady=10)
 
+package_label=ttk.Label(framea,text="",padding="10")
+package_label.grid(row=4,column=0,columnspan=3)
 
 switch = tk.BooleanVar()  # 创建一个BooleanVar变量，用于检测复选框状态
 themes = ttk.Checkbutton(root, text="dark mode", variable=switch, style="Switch.TCheckbutton",command=switch_theme)
