@@ -169,10 +169,7 @@ def load_theme():
 
 root = tk.Tk()
 root.title("Python_Tool")
-
-
-
-
+root.resizable(False,False)
 root.iconbitmap('python_tool.ico')
 note=ttk.Notebook(root)
 
@@ -204,6 +201,9 @@ download_button.grid(row=2, column=0, columnspan=3, pady=10)
 status_label = ttk.Label(frame, text="", padding="10")
 status_label.grid(row=9, column=0, columnspan=3)
 
+progress_bar = ttk.Progressbar(frame, orient='horizontal', length=300, mode='determinate')
+progress_bar.grid(row=8, column=0, columnspan=3, pady=10)
+
 pip_upgrade_button = ttk.Button(framea, text="Upgrade pip", command=upgrade_pip)
 pip_upgrade_button.grid(row=0, column=0, columnspan=3, pady=10)
 upgrade_pip_button = pip_upgrade_button  # Alias for disabling/enabling later
@@ -220,8 +220,7 @@ install_button.grid(row=2, column=0, columnspan=3, pady=10)
 uninstall_button = ttk.Button(framea, text="Uninstall Package", command=uninstall_package)
 uninstall_button.grid(row=3, column=0, columnspan=3, pady=10)
 
-progress_bar = ttk.Progressbar(frame, orient='horizontal', length=300, mode='determinate')
-progress_bar.grid(row=8, column=0, columnspan=3, pady=10)
+
 switch = tk.BooleanVar()  # 创建一个BooleanVar变量，用于检测复选框状态
 themes = ttk.Checkbutton(root, text="dark mode", variable=switch, style="Switch.TCheckbutton",command=switch_theme)
 themes.grid()
