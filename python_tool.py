@@ -201,6 +201,9 @@ select_button.grid(row=1, column=2, pady=10)
 download_button = ttk.Button(frame, text="Download Selected Version", command=download_selected_version)
 download_button.grid(row=2, column=0, columnspan=3, pady=10)
 
+status_label = ttk.Label(frame, text="", padding="10")
+status_label.grid(row=9, column=0, columnspan=3)
+
 pip_upgrade_button = ttk.Button(framea, text="Upgrade pip", command=upgrade_pip)
 pip_upgrade_button.grid(row=0, column=0, columnspan=3, pady=10)
 upgrade_pip_button = pip_upgrade_button  # Alias for disabling/enabling later
@@ -222,11 +225,8 @@ progress_bar.grid(row=8, column=0, columnspan=3, pady=10)
 switch = tk.BooleanVar()  # 创建一个BooleanVar变量，用于检测复选框状态
 themes = ttk.Checkbutton(root, text="dark mode", variable=switch, style="Switch.TCheckbutton",command=switch_theme)
 themes.grid()
-status_label = ttk.Label(frame, text="", padding="10")
-status_label.grid(row=9, column=0, columnspan=3)
-update_b=ttk.Button(frame,text="update python_tool")
-update_b.grid(row=7,column=0,columnspan=3,pady=10)
-update_b.config(state="disabled")
+
+
 load_theme()
 # Set sv_ttk theme
 switch_theme()
