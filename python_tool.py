@@ -170,9 +170,8 @@ def load_theme():
             sv_ttk.set_theme("light")
     except Exception:
         sv_ttk.set_theme("light")
-
-
-
+#def update():
+    
 root = tk.Tk()
 root.title("Python_Tool")
 root.resizable(False,False)
