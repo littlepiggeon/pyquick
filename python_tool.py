@@ -170,8 +170,13 @@ def load_theme():
             sv_ttk.set_theme("light")
     except Exception:
         sv_ttk.set_theme("light")
-#def update():
-    
+def update():
+    r=requests.get("https://githubtohaoyangli.github.io/info/info.json")
+    ver=r.json()["releases"]["release1"]["version"]
+    myver="1.1.0"
+    if(int(ver)>int(myver)){
+        
+    }
 root = tk.Tk()
 root.title("Python_Tool")
 root.resizable(False,False)
