@@ -285,7 +285,7 @@ def update():
 root = tk.Tk()
 root.title("Python_Tool")
 root.resizable(False, False)
-root.iconbitmap('python_tool.ico')
+root.iconbitmap('pythontool.ico')
 
 # 创建 Notebook
 note = ttk.Notebook(root)
