@@ -7,8 +7,6 @@ import requests
 import sv_ttk
 import time
 import wget
-import zipfile
-import shutil
 import logging
 
 # 禁用 SSL 警告
