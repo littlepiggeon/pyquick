@@ -1,27 +1,27 @@
 import tkinter as tk
-from tkinter import ttk, filedialog
+from tkinter import ttk, filedialog,messagebox
 import subprocess
 import os
 import threading
 import requests
 import sv_ttk
 import time
-import wget
-import logging
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import ThreadPoolExecutor, as_completed
+import re
+
 # 禁用 SSL 警告
 requests.packages.urllib3.disable_warnings()
 
 # 获取当前工作目录
-my_path = os.getcwd()
+MY_PATH = os.getcwd()
 
 # 如果保存目录不存在，则创建它
-if not os.path.exists(f"{my_path}\\saved"):
-    os.mkdir(f"{my_path}\\saved")
+SAVED_DIR = os.path.join(MY_PATH, "saved")
+if not os.path.exists(SAVED_DIR):
+    os.mkdir(SAVED_DIR)
 
 # 可供选择的 Python 版本列表
 VERSIONS = [
-    "3.12.0",
     "3.11.0",
     "3.10.0",
     "3.9.0",
@@ -31,112 +31,66 @@ VERSIONS = [
     "3.5.0"
 ]
 
-# 清除界面中的状态标签和包标签的文本内容
-import os
-import time
-import requests
-import threading
-from concurrent.futures import ThreadPoolExecutor, as_completed
-import tkinter as tk
-from tkinter import filedialog
-from tkinter.ttk import Progressbar
-
-import os
-import time
-import threading
-from concurrent.futures import ThreadPoolExecutor
-import requests
-import tkinter as tk
-from tkinter import filedialog
-from tkinter import ttk
+# 全局变量
+file_size = 0
+executor = None
+futures = []
+lock = threading.Lock()
+downloaded_bytes = [0]
+is_downloading = False
 
 def clear():
+    """清除状态标签和包标签的文本"""
     status_label.config(text="")
     package_label.config(text="Enter Package Name:")
 
-# 选择目标文件夹的函数
 def select_destination():
-    # 打开文件对话框让用户选择目录
+    """选择目标路径"""
     destination_path = filedialog.askdirectory()
-
-    # 如果用户选择了目录，则更新GUI中的目标路径显示
     if destination_path:
         destination_entry.delete(0, tk.END)
         destination_entry.insert(0, destination_path)
 
-# 下载选定版本的 Python 安装程序
-
 def validate_version(version):
-    """
-    验证版本号是否符合规范。
-
-    本函数旨在确保版本号为两个小数点分隔的数字形式，例如'X.Y.Z'，
-    其中X、Y、Z均为数字。这是为了确保版本号的统一性和可比性。
-
-    参数:
-    version (str): 需要验证的版本号字符串。
-
-    返回:
-    bool: 如果版本号符合规范，返回True；否则返回False。
-    """
-    # 简单的版本号验证，可以根据实际需求进行更复杂的验证
-    return version.count('.') == 2 and all(part.isdigit() for part in version.split('.'))
-
+    """验证版本号格式"""
+    pattern = r'^\d+\.\d+\.\d+$'
+    return bool(re.match(pattern, version))
 
 def validate_path(path):
-    """
-    验证给定的路径是否有效。
-
-    该函数通过检查路径是否存在于文件系统中来确保其有效性。
-
-    参数:
-    path (str): 需要验证的路径字符串。
-
-    返回:
-    bool: 如果路径有效则返回True，否则返回False。
-    """
-    # 确保路径是合法的
+    """验证路径是否存在"""
     return os.path.isdir(path)
 
-
-def download_chunk(url, start_byte, end_byte, destination, lock):
+def download_chunk(url, start_byte, end_byte, destination, retries=3):
+    """下载文件的指定部分"""
+    global is_downloading
     headers = {'Range': f'bytes={start_byte}-{end_byte}'}
-    try:
-        response = requests.get(url, headers=headers, stream=True, timeout=10)
-        response.raise_for_status()
-        with lock:
-            with open(destination, 'r+b') as f:
-                f.seek(start_byte)
-                for chunk in response.iter_content(chunk_size=8192):
-                    f.write(chunk)
-    except requests.RequestException as e:
-        with lock:
-            status_label.config(text=f"Chunk Download Failed: {str(e)}")
-            root.after(5000, clear)
+    attempt = 0
+    while attempt < retries:
+        try:
+            response = requests.get(url, headers=headers, stream=True, timeout=10)
+            response.raise_for_status()
+            with lock:
+                with open(destination, 'r+b') as f:
+                    f.seek(start_byte)
+                    for chunk in response.iter_content(chunk_size=8192):
+                        if not is_downloading:
+                            return False
+                        f.write(chunk)
+                        downloaded_bytes[0] += len(chunk)
+            return True
+        except requests.RequestException as e:
+            with lock:
+                status_label.config(text=f"Download Failed! Retrying... ({attempt + 1}/{retries})")
+            attempt += 1
+    with lock:
+        status_label.config(text=f"Download Failed! Error: {str(e)}")
+        is_downloading = False
+    return False
 
 
-def update_progress(futures, file_size, destination, lock):
-    downloaded = 0
-    last_update_time = time.time()
-    while not all(f.done() for f in futures):
-        if os.path.exists(destination):
-            current_downloaded = os.path.getsize(destination)
-            if current_downloaded > downloaded:
-                downloaded = current_downloaded
-                progress = int(downloaded / file_size * 100)
-                downloaded_mb = downloaded / (1024 * 1024)
-                total_mb = file_size / (1024 * 1024)
-                with lock:
-                    status_label.config(text=f"Downloading: {downloaded_mb:.2f} MB / {total_mb:.2f} MB")
-                    progress_bar['value'] = progress
-                    root.update_idletasks()
-                    progress_bar.update()
-                last_update_time = time.time()
-        if time.time() - last_update_time > 0.1:
-            time.sleep(0.1)
-
-
-def download_file(selected_version, destination_path):
+def download_file(selected_version, destination_path, num_threads):
+    """下载指定版本的Python安装程序"""
+    global file_size, executor, futures, downloaded_bytes, is_downloading
     if not validate_version(selected_version):
         status_label.config(text="Invalid version number")
         root.after(5000, clear)
@@ -150,7 +104,6 @@ def download_file(selected_version, destination_path):
     file_name = f"python-{selected_version}-amd64.exe"
     destination = os.path.join(destination_path, file_name)
 
-    # 如果文件已存在，则删除它
     if os.path.exists(destination):
         try:
             os.remove(destination)
@@ -170,7 +123,6 @@ def download_file(selected_version, destination_path):
         root.after(5000, clear)
         return
 
-    # 创建空文件以便后续写入
     try:
         with open(destination, 'wb') as f:
             pass
@@ -179,63 +131,96 @@ def download_file(selected_version, destination_path):
         root.after(5000, clear)
         return
 
-    num_threads = 4
     chunk_size = file_size // num_threads
     futures = []
-    lock = threading.Lock()
+    downloaded_bytes = [0]
+    is_downloading = True
 
-    with ThreadPoolExecutor(max_workers=num_threads) as executor:
-        for i in range(num_threads):
-            start_byte = i * chunk_size
-            end_byte = start_byte + chunk_size - 1 if i != num_threads - 1 else file_size - 1
-            futures.append(executor.submit(download_chunk, url, start_byte, end_byte, destination, lock))
+    executor = ThreadPoolExecutor(max_workers=num_threads)
+    for i in range(num_threads):
+        start_byte = i * chunk_size
+        end_byte = start_byte + chunk_size - 1 if i != num_threads - 1 else file_size - 1
+        futures.append(executor.submit(download_chunk, url, start_byte, end_byte, destination))
 
-        update_progress(futures, file_size, destination, lock)
+    threading.Thread(target=update_progress, daemon=True).start()
+    cancel_button.config(state="normal")  # 启用取消下载按钮
 
-    for future in futures:
-        if future.exception():
-            with lock:
-                status_label.config(text=f"Download Failed: {future.exception()}")
-                root.after(5000, clear)
-                return
-
-    with lock:
+def update_progress():
+    """更新进度条和状态标签"""
+    global file_size, is_downloading
+    while any(not future.done() for future in futures):
+        if not is_downloading:
+            break
+        progress = int(downloaded_bytes[0] / file_size * 100)
+        downloaded_mb = downloaded_bytes[0] / (1024 * 1024)
+        total_mb = file_size / (1024 * 1024)
+        status_label.config(text=f"Progress: {progress}% ({downloaded_mb:.2f} MB / {total_mb:.2f} MB)")
+        progress_bar['value'] = progress
+        time.sleep(0.1)
+    if is_downloading:
         status_label.config(text="Download Complete!")
+    else:
+        status_label.config(text="Download Cancelled!")
+    is_downloading = False
+    cancel_button.config(state="disabled")  # 禁用取消下载按钮
+
+def cancel_download():
+    """取消正在进行的下载"""
+    global is_downloading
+    is_downloading = False
+    if executor:
+        executor.shutdown(wait=False)
+    cancel_button.config(state="disabled")  # 禁用取消下载按钮
+
+
+def download_selected_version():
+    """开始下载选定的Python版本"""
+    selected_version = version_combobox.get()
+    destination_path = destination_entry.get()
+    num_threads = int(thread_combobox.get())
+
+    if not os.path.exists(destination_path):
+        status_label.config(text="Invalid path!")
         root.after(5000, clear)
+        return
+
+    threading.Thread(target=download_file, args=(selected_version, destination_path, num_threads), daemon=True).start()
 
 
 
+def confirm_cancel_download():
+    """确认取消下载"""
+    if messagebox.askyesno("Confirm", "Are you sure you want to cancel the download?"):
+        cancel_download()
 
-
-
-# 获取当前 pip 版本
 def get_pip_version():
+    """获取当前pip版本"""
     try:
         return subprocess.check_output(["pip", "--version"], creationflags=subprocess.CREATE_NO_WINDOW).decode().strip().split()[1]
     except subprocess.CalledProcessError as e:
-        logging.error(f"Subprocess error: {e}")
+        print(f"Subprocess error: {e}")
         return None
 
-# 获取最新 pip 版本
 def get_latest_pip_version():
+    """获取最新pip版本"""
     try:
-        r = requests.get("https://pypi.org/pypi/pip/json", verify=False)  # 启用证书验证
+        r = requests.get("https://pypi.org/pypi/pip/json", verify=False)
         return r.json()["info"]["version"]
     except requests.RequestException as e:
-        logging.error(f"Request error: {e}")
+        print(f"Request error: {e}")
         return None
 
-# 更新 pip
 def update_pip():
+    """更新pip到最新版本"""
     try:
         subprocess.run(["python", "-m", "pip", "install", "--upgrade", "pip"], creationflags=subprocess.CREATE_NO_WINDOW)
         return True
     except subprocess.CalledProcessError as e:
-        logging.error(f"Subprocess error: {e}")
+        print(f"Subprocess error: {e}")
         return False
 
-# 检查并更新 pip 版本
 def check_pip_version():
+    """检查并更新pip版本"""
     current_version = get_pip_version()
     if current_version is None:
         package_label.config(text="Error: Failed to get current pip version")
@@ -266,26 +251,11 @@ def check_pip_version():
         time.sleep(5)
         clear()
 
-# 下载选定版本的 Python
-def download_selected_version():
-    selected_version = version_combobox.get()
-    destination_path = destination_entry.get()
-    
-    if not os.path.exists(destination_path):
-        status_label.config(text="Invalid path!")
-        time.sleep(5)
-        clear()
-        return
-    
-    download_thread = threading.Thread(target=download_file, args=(selected_version, destination_path))
-    download_thread.start()
-
-# 升级 pip
 def upgrade_pip():
+    """启动pip版本检查线程"""
     try:
         subprocess.check_output(["python", "--version"], creationflags=subprocess.CREATE_NO_WINDOW)
-        upthread = threading.Thread(target=check_pip_version, daemon=True)
-        upthread.start()
+        threading.Thread(target=check_pip_version, daemon=True).start()
     except FileNotFoundError:
         package_label.config(text="Python is not installed.")
         time.sleep(5)
@@ -295,12 +265,12 @@ def upgrade_pip():
         time.sleep(5)
         clear()
 
-# 安装指定的包
 def install_package():
+    """安装指定的Python包"""
     try:
         subprocess.check_output(["python", "--version"], creationflags=subprocess.CREATE_NO_WINDOW)
         package_name = package_entry.get()
-        
+
         def install_package_thread():
             try:
                 result = subprocess.run(["python", "-m", "pip", "install", package_name], capture_output=True, text=True, creationflags=subprocess.CREATE_NO_WINDOW)
@@ -321,9 +291,8 @@ def install_package():
                 package_label.config(text=f"Error installing package '{package_name}': {str(e)}")
                 time.sleep(5)
                 clear()
-        
-        install_thread = threading.Thread(target=install_package_thread)
-        install_thread.start()
+
+        threading.Thread(target=install_package_thread).start()
     except FileNotFoundError:
         package_label.config(text="Python is not installed.")
         time.sleep(5)
@@ -333,12 +302,12 @@ def install_package():
         time.sleep(5)
         clear()
 
-# 卸载指定的包
 def uninstall_package():
+    """卸载指定的Python包"""
     try:
         subprocess.check_output(["python", "--version"], creationflags=subprocess.CREATE_NO_WINDOW)
         package_name = package_entry.get()
-        
+
         try:
             installed_packages = subprocess.check_output(["python", "-m", "pip", "list", "--format=columns"], text=True, creationflags=subprocess.CREATE_NO_WINDOW)
             if package_name.lower() in installed_packages.lower():
@@ -368,8 +337,8 @@ def uninstall_package():
         time.sleep(5)
         clear()
 
-# 检查 Python 是否已安装
 def check_python_installation():
+    """检查Python是否已安装"""
     try:
         subprocess.check_output(["python", "--version"], creationflags=subprocess.CREATE_NO_WINDOW)
     except Exception as e:
@@ -380,21 +349,24 @@ def check_python_installation():
         time.sleep(5)
         clear()
 
-# 切换主题
 def switch_theme():
+    """切换主题"""
     if switch.get():
         sv_ttk.set_theme("dark")
-        with open(f"{my_path}\\saved\\theme.txt", "w") as a:
-            a.write("dark")
+        save_theme("dark")
     else:
         sv_ttk.set_theme("light")
-        with open(f"{my_path}\\saved\\theme.txt", "w") as a:
-            a.write("light")
+        save_theme("light")
 
-# 加载保存的主题设置
+def save_theme(theme):
+    """保存主题设置"""
+    with open(os.path.join(SAVED_DIR, "theme.txt"), "w") as a:
+        a.write(theme)
+
 def load_theme():
+    """加载主题设置"""
     try:
-        with open(f"{my_path}\\saved\\theme.txt", "r") as r:
+        with open(os.path.join(SAVED_DIR, "theme.txt"), "r") as r:
             theme = r.read()
         if theme == "dark":
             switch.set(True)
@@ -405,94 +377,78 @@ def load_theme():
     except Exception:
         sv_ttk.set_theme("light")
 
-# 检查更新
 def update():
+    """检查更新"""
     r = requests.get("https://githubtohaoyangli.github.io/info/info.json")
     ver = r.json()["releases"]["release1"]["version"]
     myver = "1.1.0"
-    if int(ver) > int(myver):
+    if ver > myver:
         pass
 
 if __name__ == "__main__":
-
-    # 创建主窗口
     root = tk.Tk()
     root.title("Python_Tool")
     root.resizable(False, False)
-    root.iconbitmap('pythontool.ico')
+    icon_path = os.path.join(MY_PATH, 'pythontool.ico')
+    if os.path.exists(icon_path):
+        root.iconbitmap(icon_path)
 
-    # 创建 Notebook
     note = ttk.Notebook(root)
-
-    # 创建框架
-    frame = ttk.Frame(root, padding="10")
-    framea = ttk.Frame(root, padding="10")
-
-    # 添加框架到 Notebook
-    note.add(frame, text="Python Download")
-    note.add(framea, text="pip Management")
+    download_frame = ttk.Frame(note, padding="10")
+    pip_frame = ttk.Frame(note, padding="10")
+    note.add(download_frame, text="Python Download")
+    note.add(pip_frame, text="pip Management")
     note.grid(padx=10, pady=10, row=0, column=0)
 
-    # Python 下载页面
-    version_label = ttk.Label(frame, text="Select Python Version:")
-    version_label.grid(row=0, column=0, pady=10, sticky="e")
-
-    selected_version = tk.StringVar()
-    version_combobox = ttk.Combobox(frame, textvariable=selected_version, values=VERSIONS, state="readonly")
-    version_combobox.grid(row=0, column=1, pady=10, padx=10, sticky="w")
+    # Python Download Frame
+    version_label = ttk.Label(download_frame, text="Select Python Version:")
+    version_label.grid(row=0, column=0, pady=5, sticky="e")
+    version_combobox = ttk.Combobox(download_frame, values=VERSIONS, state="readonly")
+    version_combobox.grid(row=0, column=1, pady=5, padx=5, sticky="w")
     version_combobox.current(0)
 
-    destination_label = ttk.Label(frame, text="Select Destination:")
-    destination_label.grid(row=1, column=0, pady=10, sticky="e")
+    destination_label = ttk.Label(download_frame, text="Select Destination:")
+    destination_label.grid(row=1, column=0, pady=5, sticky="e")
+    destination_entry = ttk.Entry(download_frame, width=40)
+    destination_entry.grid(row=1, column=1, pady=5, padx=5, sticky="w")
+    select_button = ttk.Button(download_frame, text="Select Path", command=select_destination)
+    select_button.grid(row=1, column=2, pady=5, padx=5, sticky="w")
 
-    destination_entry = ttk.Entry(frame, width=40)
-    destination_entry.grid(row=1, column=1, pady=10, padx=10, sticky="w")
+    thread_label = ttk.Label(download_frame, text="Select Number of Threads:")
+    thread_label.grid(row=2, column=0, pady=5, sticky="e")
+    thread_combobox = ttk.Combobox(download_frame, values=[str(i) for i in range(1, 33)], state="readonly")
+    thread_combobox.grid(row=2, column=1, pady=5, padx=5, sticky="w")
+    thread_combobox.current(3)  # Default to 4 threads
 
-    select_button = ttk.Button(frame, text="Select Path", command=select_destination)
-    select_button.grid(row=1, column=2, pady=10, padx=10, sticky="w")
+    download_button = ttk.Button(download_frame, text="Download Selected Version", command=download_selected_version)
+    download_button.grid(row=3, column=0, columnspan=3, pady=10, padx=5)
+    cancel_button = ttk.Button(download_frame, text="Cancel Download", command=confirm_cancel_download)
+    cancel_button.grid(row=4, column=0, pady=10, padx=5,columnspan=3)
+    cancel_button.config(state="disabled")
 
-    download_button = ttk.Button(frame, text="Download Selected Version", command=download_selected_version)
-    download_button.grid(row=2, column=0, columnspan=3, pady=10, padx=10)
+    progress_bar = ttk.Progressbar(download_frame, orient='horizontal', length=300, mode='determinate')
+    progress_bar.grid(row=5, column=0, columnspan=3, pady=10, padx=5)
+    status_label = ttk.Label(download_frame, text="", padding="5")
+    status_label.grid(row=6, column=0, columnspan=3, pady=5, padx=5)
 
-    progress_bar = ttk.Progressbar(frame, orient='horizontal', length=300, mode='determinate')
-    progress_bar.grid(row=3, column=0, columnspan=3, pady=10, padx=10)
+    # pip Management Frame
+    pip_upgrade_button = ttk.Button(pip_frame, text="Upgrade pip", command=upgrade_pip)
+    pip_upgrade_button.grid(row=0, column=0, columnspan=3, pady=10, padx=5)
+    package_label = ttk.Label(pip_frame, text="Enter Package Name:")
+    package_label.grid(row=1, column=0, pady=5, padx=5, sticky="e")
+    package_entry = ttk.Entry(pip_frame, width=40)
+    package_entry.grid(row=1, column=1, pady=5, padx=5, sticky="w")
+    install_button = ttk.Button(pip_frame, text="Install Package", command=install_package)
+    install_button.grid(row=2, column=0, columnspan=3, pady=10, padx=5)
+    uninstall_button = ttk.Button(pip_frame, text="Uninstall Package", command=uninstall_package)
+    uninstall_button.grid(row=3, column=0, columnspan=3, pady=10, padx=5)
+    package_status_label = ttk.Label(pip_frame, text="", padding="5")
+    package_status_label.grid(row=4, column=0, columnspan=3, pady=5, padx=5)
 
-    status_label = ttk.Label(frame, text="", padding="10")
-    status_label.grid(row=4, column=0, columnspan=3, pady=10, padx=10)
-
-    # pip 管理页面
-    pip_upgrade_button = ttk.Button(framea, text="Upgrade pip", command=upgrade_pip)
-    pip_upgrade_button.grid(row=0, column=0, columnspan=3, pady=10, padx=10)
-    upgrade_pip_button = pip_upgrade_button  # 别名，用于后续禁用/启用
-
-    package_label = ttk.Label(framea, text="Enter Package Name:")
-    package_label.grid(row=1, column=0, pady=10, padx=10, sticky="e")
-
-    package_entry = ttk.Entry(framea, width=40)
-    package_entry.grid(row=1, column=1, pady=10, padx=10, sticky="w")
-
-    install_button = ttk.Button(framea, text="Install Package", command=install_package)
-    install_button.grid(row=2, column=0, columnspan=3, pady=10, padx=10)
-
-    uninstall_button = ttk.Button(framea, text="Uninstall Package", command=uninstall_package)
-    uninstall_button.grid(row=3, column=0, columnspan=3, pady=10, padx=10)
-
-    package_status_label = ttk.Label(framea, text="", padding="10")
-    package_status_label.grid(row=4, column=0, columnspan=3, pady=10, padx=10)
-
-    # 主题切换按钮
-    switch = tk.BooleanVar()  # 创建一个 BooleanVar 变量，用于检测复选框状态
+    switch = tk.BooleanVar()
     themes = ttk.Checkbutton(root, text="Dark Mode", variable=switch, style="Switch.TCheckbutton", command=switch_theme)
-    themes.grid(row=1, column=0, pady=10, padx=10, sticky="w")
-
-    # 加载保存的主题设置
+    themes.grid(row=1, column=0, pady=10, padx=5, sticky="w")
     load_theme()
 
-    # 设置 sv_ttk 主题
-    switch_theme()
-
-    # 检查 Python 是否已安装
     check_python_installation()
-
-    # 运行主循环
     root.mainloop()
