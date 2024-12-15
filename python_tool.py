@@ -8,7 +8,7 @@ import sv_ttk
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import re
-
+import datetime
 # 禁用 SSL 警告
 requests.packages.urllib3.disable_warnings()
 
@@ -20,6 +20,14 @@ SAVED_DIR = os.path.join(MY_PATH, "saved")
 if not os.path.exists(SAVED_DIR):
     os.mkdir(SAVED_DIR)
 
+def show_about():
+    """显示关于对话框"""
+    if datetime.datetime.now() >= datetime.datetime(2025, 1, 1):
+        time_lim = datetime.datetime.now().day - datetime.datetime(2025, 3, 13).day +abs(datetime.datetime.now().month - datetime.datetime(2025, 3, 13).month-12)*30
+        messagebox.showwarning("About", f"Version: 2.0 dev\nBeta Version: 1905\nExpiration time:2025/3/13\n only {time_lim} days left.")
+    else:
+
+        messagebox.showinfo("About", "Version: 2.0 dev\nBeta Version: 1905\nExpiration time:2025/3/13")
 # 可供选择的 Python 版本列表
 VERSIONS = [
     "3.13.0",
@@ -54,26 +62,64 @@ def select_destination():
         destination_entry.insert(0, destination_path)
 
 def validate_version(version):
-    """验证版本号格式"""
+    """
+    验证版本号格式是否符合预期的格式
+
+    此函数通过正则表达式检查传入的版本号是否符合 major.minor.patch 的格式，
+    其中 major、minor 和 patch 都是数字
+
+    参数:
+    version (str): 需要验证的版本号字符串
+
+    返回:
+    bool: 如果版本号符合预期格式，则返回 True，否则返回 False
+    """
+    # 定义版本号的正则表达式模式，确保版本号是 major.minor.patch 的格式
     pattern = r'^\d+\.\d+\.\d+$'
+    # 使用正则表达式匹配版本号，返回匹配结果的布尔值
     return bool(re.match(pattern, version))
 
+
 def validate_path(path):
-    """验证路径是否存在"""
+    """
+    验证路径是否存在
+
+    参数:
+    path (str): 需要验证的路径
+
+    返回:
+    bool: 如果路径存在返回True，否则返回False
+    """
     return os.path.isdir(path)
 
+
 def download_chunk(url, start_byte, end_byte, destination, retries=3):
-    """下载文件的指定部分"""
+    """
+    下载文件的指定部分
+
+    :param url: 文件的URL
+    :param start_byte: 开始下载的字节位置
+    :param end_byte: 结束下载的字节位置
+    :param destination: 文件保存的目标路径
+    :param retries: 最大重试次数，默认为3次
+    :return: 如果下载成功返回True，否则返回False
+    """
     global is_downloading
+    # 构造请求头，指定下载的字节范围
     headers = {'Range': f'bytes={start_byte}-{end_byte}'}
     attempt = 0
+    # 尝试下载文件，如果失败则重试
     while attempt < retries:
         try:
+            # 发起HTTP请求，包含自定义请求头，启用流式响应，设置超时
             response = requests.get(url, headers=headers, stream=True, timeout=10)
+            # 检查响应状态码，如果状态码表示错误，则抛出异常
             response.raise_for_status()
+            # 使用文件锁确保并发安全，打开文件准备写入
             with lock:
                 with open(destination, 'r+b') as f:
                     f.seek(start_byte)
+                    # 遍历响应内容，写入到文件中
                     for chunk in response.iter_content(chunk_size=8192):
                         if not is_downloading:
                             return False
@@ -81,31 +127,39 @@ def download_chunk(url, start_byte, end_byte, destination, retries=3):
                         downloaded_bytes[0] += len(chunk)
             return True
         except requests.RequestException as e:
+            # 如果发生网络请求异常，更新状态标签并重试
             with lock:
                 status_label.config(text=f"Download Failed! Retrying... ({attempt + 1}/{retries})")
             attempt += 1
+    # 如果重试次数用尽仍然失败，更新状态标签并设置下载状态为False
     with lock:
         status_label.config(text=f"Download Failed! Error: {str(e)}")
         is_downloading = False
     return False
 
 
+
+# 定义下载指定版本Python安装程序的函数
 def download_file(selected_version, destination_path, num_threads):
     """下载指定版本的Python安装程序"""
-    global file_size, executor, futures, downloaded_bytes, is_downloading
+    global file_size, executor, futures, downloaded_bytes, is_downloading,destination
+    # 验证版本号是否有效
     if not validate_version(selected_version):
         status_label.config(text="Invalid version number")
         root.after(5000, clear)
         return
 
+    # 验证目标路径是否有效
     if not validate_path(destination_path):
         status_label.config(text="Invalid destination path")
         root.after(5000, clear)
         return
 
+    # 构造文件名和目标路径
     file_name = f"python-{selected_version}-amd64.exe"
     destination = os.path.join(destination_path, file_name)
 
+    # 如果目标文件已存在，尝试删除它
     if os.path.exists(destination):
         try:
             os.remove(destination)
@@ -114,8 +168,10 @@ def download_file(selected_version, destination_path, num_threads):
             root.after(5000, clear)
             return
 
+    # 构造下载URL
     url = f"https://www.python.org/ftp/python/{selected_version}/python-{selected_version}-amd64.exe"
 
+    # 获取文件大小
     try:
         response = requests.head(url, timeout=10)
         response.raise_for_status()
@@ -125,6 +181,7 @@ def download_file(selected_version, destination_path, num_threads):
         root.after(5000, clear)
         return
 
+    # 尝试创建目标文件
     try:
         with open(destination, 'wb') as f:
             pass
@@ -133,38 +190,62 @@ def download_file(selected_version, destination_path, num_threads):
         root.after(5000, clear)
         return
 
+    # 计算每个线程下载的数据块大小
     chunk_size = file_size // num_threads
     futures = []
     downloaded_bytes = [0]
     is_downloading = True
 
+    # 使用线程池执行下载任务
     executor = ThreadPoolExecutor(max_workers=num_threads)
     for i in range(num_threads):
         start_byte = i * chunk_size
         end_byte = start_byte + chunk_size - 1 if i != num_threads - 1 else file_size - 1
-        futures.append(executor.submit(download_chunk, url, start_byte, end_byte, destination))
+        def start():
+            futures.append(executor.submit(download_chunk, url, start_byte, end_byte, destination))
+        threading.Thread(target=start,daemon=True).start()
 
+    # 启动一个线程来更新下载进度
     threading.Thread(target=update_progress, daemon=True).start()
-    cancel_button.config(state="normal")  # 启用取消下载按钮
+    # 启用取消下载按钮
+    cancel_button.config(state="normal")
+
 
 def update_progress():
-    """更新进度条和状态标签"""
+    """更新进度条和状态标签
+
+    通过计算已下载字节数与总文件大小的比例来更新进度条和状态标签的文本。
+    此函数在一个单独的线程中运行，以保持UI响应性。
+    """
     global file_size, is_downloading
+    # 当有任何一个下载任务未完成时，继续更新进度
     while any(not future.done() for future in futures):
+        # 如果下载状态为False，则停止更新进度
         if not is_downloading:
             break
+        # 计算并更新下载进度的百分比
         progress = int(downloaded_bytes[0] / file_size * 100)
+        # 将已下载字节数转换为MB
         downloaded_mb = downloaded_bytes[0] / (1024 * 1024)
+        # 将总文件大小转换为MB
         total_mb = file_size / (1024 * 1024)
+        # 更新状态标签的文本，显示下载进度和已下载/总文件大小
         status_label.config(text=f"Progress: {progress}% ({downloaded_mb:.2f} MB / {total_mb:.2f} MB)")
+        # 更新进度条的值
         progress_bar['value'] = progress
-        time.sleep(0.1)
+        # 暂停0.1秒，减少UI更新频率
+        time.sleep(0.05)
+    # 如果下载状态为True，则表示下载已完成
     if is_downloading:
         status_label.config(text="Download Complete!")
+    # 如果下载状态为False，则表示下载已取消
     else:
         status_label.config(text="Download Cancelled!")
+    # 将下载状态设置为False，表示下载已完成或已取消
     is_downloading = False
-    cancel_button.config(state="disabled")  # 禁用取消下载按钮
+    # 禁用取消下载按钮，防止用户在下载已完成或已取消的情况下点击按钮
+    cancel_button.config(state="disabled")
+
 
 def cancel_download():
     """取消正在进行的下载"""
@@ -172,7 +253,11 @@ def cancel_download():
     is_downloading = False
     if executor:
         executor.shutdown(wait=False)
-    cancel_button.config(state="disabled")  # 禁用取消下载按钮
+        cancel_button.config(state="disabled")  # 禁用取消下载按钮
+        progress_bar['value'] = 0
+        time.sleep(0.5)
+        os.remove(destination)
+
 
 
 def download_selected_version():
@@ -193,7 +278,7 @@ def download_selected_version():
 def confirm_cancel_download():
     """确认取消下载"""
     if messagebox.askyesno("Confirm", "Are you sure you want to cancel the download?"):
-        cancel_download()
+        threading.Thread(target=cancel_download, daemon=True).start()
 
 def get_pip_version():
     """获取当前pip版本"""
@@ -388,12 +473,22 @@ def update():
         pass
 
 if __name__ == "__main__":
+    if datetime.datetime.now() >= datetime.datetime(2025, 3, 13):
+        messagebox.showerror("Error", "This program cannot be opened after March 13, 2025.")
+        exit(1)
     root = tk.Tk()
     root.title("Python_Tool")
     root.resizable(False, False)
     icon_path = os.path.join(MY_PATH, 'pythontool.ico')
     if os.path.exists(icon_path):
         root.iconbitmap(icon_path)
+    menubar = tk.Menu(root)
+    root.config(menu=menubar)
+
+    # 添加 Help 菜单项
+    help_menu = tk.Menu(menubar, tearoff=0)
+    menubar.add_cascade(label="Help", menu=help_menu)
+    help_menu.add_command(label="About", command=show_about)
 
     note = ttk.Notebook(root)
     download_frame = ttk.Frame(note, padding="10")
