@@ -22,6 +22,8 @@ if not os.path.exists(SAVED_DIR):
 
 # 可供选择的 Python 版本列表
 VERSIONS = [
+    "3.13.0",
+    "3.12.0",
     "3.11.0",
     "3.10.0",
     "3.9.0",
@@ -416,9 +418,9 @@ if __name__ == "__main__":
 
     thread_label = ttk.Label(download_frame, text="Select Number of Threads:")
     thread_label.grid(row=2, column=0, pady=5, sticky="e")
-    thread_combobox = ttk.Combobox(download_frame, values=[str(i) for i in range(1, 33)], state="readonly")
+    thread_combobox = ttk.Combobox(download_frame, values=[str(i) for i in range(1, 1025)], state="readonly")
     thread_combobox.grid(row=2, column=1, pady=5, padx=5, sticky="w")
-    thread_combobox.current(3)  # Default to 4 threads
+    thread_combobox.current(31)  # Default to 32 threads
 
     download_button = ttk.Button(download_frame, text="Download Selected Version", command=download_selected_version)
     download_button.grid(row=3, column=0, columnspan=3, pady=10, padx=5)
