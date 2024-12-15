@@ -23,7 +23,7 @@ if not os.path.exists(SAVED_DIR):
 def show_about():
     """显示关于对话框"""
     if datetime.datetime.now() >= datetime.datetime(2025, 1, 1):
-        time_lim = datetime.datetime.now().day - datetime.datetime(2025, 3, 13).day +abs(datetime.datetime.now().month - datetime.datetime(2025, 3, 13).month-12)*30
+        time_lim = datetime.datetime.now().day - datetime.datetime(2025, 3, 13).day +abs( datetime.datetime(2025, 3, 13).month-datetime.datetime.now().month)*30
         messagebox.showwarning("About", f"Version: 2.0 dev\nBeta Version: 1905\nExpiration time:2025/3/13\n only {time_lim} days left.")
     else:
 
