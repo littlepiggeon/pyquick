@@ -23,11 +23,11 @@ if not os.path.exists(SAVED_DIR):
 def show_about():
     """显示关于对话框"""
     if datetime.datetime.now() >= datetime.datetime(2025, 1, 1):
-        time_lim = datetime.datetime.now().day - datetime.datetime(2025, 3, 13).day +abs( datetime.datetime(2025, 3, 13).month-datetime.datetime.now().month)*30
-        messagebox.showwarning("About", f"Version: 2.0 dev\nBeta Version: 1905\nExpiration time:2025/3/13\n only {time_lim} days left.")
+        time_lim = (datetime.datetime(2025, 3, 13)-datetime.datetime.now()).days
+        messagebox.showwarning("About", f"Version: dev\nBuild: 1908\nExpiration time: 2025/3/13\nOnly {time_lim} days left.")
     else:
-
-        messagebox.showinfo("About", "Version: 2.0 dev\nBeta Version: 1905\nExpiration time:2025/3/13")
+        time_lim = (datetime.datetime(2025, 3, 13)-datetime.datetime.now()).days
+        messagebox.showinfo("About", f"Version: dev\nBeta Version: 1908\nExpiration time:2025/3/13\n {time_lim} days left.")
 # 可供选择的 Python 版本列表
 VERSIONS = [
     "3.13.0",
@@ -486,7 +486,7 @@ if __name__ == "__main__":
     root.config(menu=menubar)
 
     # 添加 Help 菜单项
-    help_menu = tk.Menu(menubar, tearoff=0)
+    help_menu = tk.Menu(menubar,tearoff=0)#tearoff=0
     menubar.add_cascade(label="Help", menu=help_menu)
     help_menu.add_command(label="About", command=show_about)
 
@@ -513,7 +513,7 @@ if __name__ == "__main__":
 
     thread_label = ttk.Label(download_frame, text="Select Number of Threads:")
     thread_label.grid(row=2, column=0, pady=5, sticky="e")
-    thread_combobox = ttk.Combobox(download_frame, values=[str(i) for i in range(1, 1025)], state="readonly")
+    thread_combobox = ttk.Combobox(download_frame, values=[str(i) for i in range(1, 129)], state="readonly")
     thread_combobox.grid(row=2, column=1, pady=5, padx=5, sticky="w")
     thread_combobox.current(31)  # Default to 32 threads
 
