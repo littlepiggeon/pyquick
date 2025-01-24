@@ -23,10 +23,10 @@ if not os.path.exists(SAVED_DIR):
 def show_about():
     """显示关于对话框"""
     if datetime.datetime.now() >= datetime.datetime(2025, 2, 1):
-        time_lim = (datetime.datetime(2025,4,13)-datetime.datetime.now()).days
+        time_lim = (datetime.datetime(2025,3,13)-datetime.datetime.now()).days
         messagebox.showwarning("About", f"Version: 2.0 dev\nBuild: 1911\nExpiration time:2025/3/13\n only {time_lim} days left.")
     else:
-        time_lim = (datetime.datetime(2025, 4, 13) - datetime.datetime.now()).days
+        time_lim = (datetime.datetime(2025, 3, 13) - datetime.datetime.now()).days
         messagebox.showinfo("About", f"Version: 2.0 dev\nBuild: 1911\nExpiration time:2025/3/13\n{time_lim} days left.")
 # 可供选择的 Python 版本列表
 VERSIONS = [
