@@ -50,7 +50,7 @@ class Window(FluentWindow):
 
     def initWindow(self):
 
-        self.setWindowIcon(QIcon('pyquick.png'))
+        self.setWindowIcon(QIcon('pyquick.ico'))
         self.setWindowTitle('Launcher')
 
 
