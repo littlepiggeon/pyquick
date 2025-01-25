@@ -1,9 +1,12 @@
-from qfluentwidgets import NavigationItemPosition, FluentWindow, SubtitleLabel, setFont, BodyLabel, DisplayLabel, LineEdit ,LargeTitleLabel, PushButton
-from qfluentwidgets import FluentIcon as FIF
-from PyQt5.QtWidgets import QFrame, QHBoxLayout, QApplication, QVBoxLayout
-from PyQt5.QtGui import QIcon
-from PyQt5.QtCore import Qt
+import subprocess
 import sys
+
+from PyQt5.QtCore import Qt
+from PyQt5.QtGui import QIcon
+from PyQt5.QtWidgets import QFrame, QHBoxLayout, QApplication, QVBoxLayout
+from qfluentwidgets import FluentIcon as FIF
+from qfluentwidgets import NavigationItemPosition, FluentWindow, SubtitleLabel, setFont, LineEdit, PushButton
+
 
 class Widget(QFrame):
 
@@ -18,22 +21,27 @@ class Widget(QFrame):
         # 必须给子界面设置全局唯一的对象名
         self.setObjectName(text.replace(' ', '-'))
 
+
 class start_pyquick(QFrame):
     def start(self):
-        print("Button clicked")
-    def __init__(self, text: str,parent=None):
+        w.hide()
+        subprocess.run([sys.executable, './python_tool.py'])
+        w.show()
+
+    def __init__(self, text: str, parent=None):
         super().__init__(parent=parent)
         self.hBoxLayout = QVBoxLayout(self)
 
-        self.filepath=LineEdit(self)
-        self.filepath.setFixedSize(500,30)
+        # self.filepath = LineEdit(self)
+        # self.filepath.setFixedSize(500, 30)
 
         self.start_botton = PushButton("Start pyquick", self)
         self.start_botton.clicked.connect(self.start)
 
-        self.hBoxLayout.addWidget(self.filepath, 1, Qt.AlignCenter)
+        # self.hBoxLayout.addWidget(self.filepath, 1, Qt.AlignCenter)
         self.hBoxLayout.addWidget(self.start_botton, 2, Qt.AlignCenter)
         self.setObjectName(text.replace(' ', '-'))
+
 
 class Window(FluentWindow):
     def __init__(self):
@@ -49,7 +57,6 @@ class Window(FluentWindow):
         self.addSubInterface(self.settingInterface, FIF.SETTING, 'Settings', NavigationItemPosition.BOTTOM)
 
     def initWindow(self):
-
         self.setWindowIcon(QIcon('pyquick.ico'))
         self.setWindowTitle('Launcher')
 
