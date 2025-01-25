@@ -1,4 +1,5 @@
 requests
 wget
 sv_ttk
+"PyQt-Fluent-Widgets[full]"
 nuitka==2.5.9
