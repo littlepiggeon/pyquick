@@ -1,61 +1,58 @@
-import tkinter as tk
-from tkinter import ttk, filedialog,messagebox
-import subprocess
+import datetime
+import logging
 import os
+import re
+import subprocess
 import threading
+import time
+import tkinter as tk
+from concurrent.futures import ThreadPoolExecutor
+from tkinter import ttk, filedialog, messagebox
+
 import requests
 import sv_ttk
-import time
-from concurrent.futures import ThreadPoolExecutor, as_completed
-import re
-import datetime
+import urllib3
+from bs4 import BeautifulSoup
+
 # 禁用 SSL 警告
-requests.packages.urllib3.disable_warnings()
+urllib3.disable_warnings()
 
 # 获取当前工作目录
 MY_PATH = os.getcwd()
 
+# 获取用户配置目录
+config_path = os.path.join(os.environ["APPDATA"], f"pyquick")
+
 # 如果保存目录不存在，则创建它
-SAVED_DIR = os.path.join(MY_PATH, "saved")
-if not os.path.exists(SAVED_DIR):
-    os.mkdir(SAVED_DIR)
+if not os.path.exists(config_path):
+    os.makedirs(config_path)
+
 
 def show_about():
     """显示关于对话框"""
     if datetime.datetime.now() >= datetime.datetime(2025, 2, 1):
-        time_lim = (datetime.datetime(2025,4,13)-datetime.datetime.now()).days
-        messagebox.showwarning("About", f"Version: 2.0 dev\nBuild: 1911\nExpiration time:2025/3/13\n only {time_lim} days left.")
+        time_lim = (datetime.datetime(2025, 4, 13) - datetime.datetime.now()).days
+        messagebox.showwarning("About",
+                               f"Version: 2.0 dev\nBuild: 1911\nExpiration time:2025/3/13\n only {time_lim} days left.")
     else:
         time_lim = (datetime.datetime(2025, 4, 13) - datetime.datetime.now()).days
         messagebox.showinfo("About", f"Version: 2.0 dev\nBuild: 1911\nExpiration time:2025/3/13\n{time_lim} days left.")
-# 可供选择的 Python 版本列表
-VERSIONS = [
-    "3.13.0",
-    "3.12.7",
-    "3.12.6",
-    "3.12.5",
-    "3.12.0",
-    "3.11.0",
-    "3.10.0",
-    "3.9.0",
-    "3.8.0",
-    "3.7.0",
-    "3.6.0",
-    "3.5.0"
-]
+
 
 # 全局变量
 file_size = 0
-executor = None
+executor: ThreadPoolExecutor
 futures = []
 lock = threading.Lock()
 downloaded_bytes = [0]
 is_downloading = False
 
+
 def clear():
     """清除状态标签和包标签的文本"""
     status_label.config(text="")
     package_label.config(text="Enter Package Name:")
+
 
 def select_destination():
     """选择目标路径"""
@@ -63,6 +60,56 @@ def select_destination():
     if destination_path:
         destination_entry.delete(0, tk.END)
         destination_entry.insert(0, destination_path)
+
+
+class Version:
+    def __init__(self, version_str: str):
+        self.version = version_str.split('.')
+        while len(self.version) < 3:
+            self.version.append('0')
+
+    def __lt__(self, other):
+        for i in range(3):
+            if (v1 := int(self.version[i])) < (v2 := int(other.version[i])):
+                return True
+            elif v1 > v2:
+                return False
+        else:
+            return False
+
+
+# 排序版本获取结果
+def sort_results(results: list):
+    _results = results.copy()
+    length = len(_results)
+    for i in range(length):
+        for ii in range(0, length - i - 1):
+            v1 = Version(_results[ii])
+            v2 = Version(_results[ii + 1])
+            if v1 < v2:
+                _results[ii], _results[ii + 1] = _results[ii + 1], _results[ii]
+    version_combobox.configure(values=_results)
+
+
+# 获取可下载版本列表
+def python_version_reload():
+    version_reload_button.configure(state="disabled", text="Reloading...")
+    root.update()
+    try:
+        with requests.get("https://www.python.org/ftp/python/") as r:
+            bs = BeautifulSoup(r.content, "lxml")
+            results = []
+            for i in bs.find_all("a"):
+                if i.text[0].isnumeric():
+                    results.append(i.text[:-1])
+            if results:
+                version_reload_button.configure(text="Sorting...")
+                sort_results(results)
+    except Exception as e:
+        logging.error(f"Python Version Reload Wrong:{e}")
+    version_reload_button.configure(state="normal", text="Reload")
+    root.update()
+
 
 def validate_version(version):
     """
@@ -136,16 +183,15 @@ def download_chunk(url, start_byte, end_byte, destination, retries=3):
             attempt += 1
     # 如果重试次数用尽仍然失败，更新状态标签并设置下载状态为False
     with lock:
-        status_label.config(text=f"Download Failed! Error: {str(e)}")
+        status_label.config(text=f"Download Failed! Error: {e}")
         is_downloading = False
     return False
-
 
 
 # 定义下载指定版本Python安装程序的函数
 def download_file(selected_version, destination_path, num_threads):
     """下载指定版本的Python安装程序"""
-    global file_size, executor, futures, downloaded_bytes, is_downloading,destination
+    global file_size, executor, futures, downloaded_bytes, is_downloading, destination
     # 验证版本号是否有效
     if not validate_version(selected_version):
         status_label.config(text="Invalid version number")
@@ -204,9 +250,11 @@ def download_file(selected_version, destination_path, num_threads):
     for i in range(num_threads):
         start_byte = i * chunk_size
         end_byte = start_byte + chunk_size - 1 if i != num_threads - 1 else file_size - 1
+
         def start():
             futures.append(executor.submit(download_chunk, url, start_byte, end_byte, destination))
-        threading.Thread(target=start,daemon=True).start()
+
+        threading.Thread(target=start, daemon=True).start()
 
     # 启动一个线程来更新下载进度
     threading.Thread(target=update_progress, daemon=True).start()
@@ -262,7 +310,6 @@ def cancel_download():
         os.remove(destination)
 
 
-
 def download_selected_version():
     """开始下载选定的Python版本"""
     selected_version = version_combobox.get()
@@ -277,19 +324,21 @@ def download_selected_version():
     threading.Thread(target=download_file, args=(selected_version, destination_path, num_threads), daemon=True).start()
 
 
-
 def confirm_cancel_download():
     """确认取消下载"""
     if messagebox.askyesno("Confirm", "Are you sure you want to cancel the download?"):
         threading.Thread(target=cancel_download, daemon=True).start()
 
+
 def get_pip_version():
     """获取当前pip版本"""
     try:
-        return subprocess.check_output(["pip", "--version"], creationflags=subprocess.CREATE_NO_WINDOW).decode().strip().split()[1]
+        return subprocess.check_output(["pip", "--version"],
+                                       creationflags=subprocess.CREATE_NO_WINDOW).decode().strip().split()[1]
     except subprocess.CalledProcessError as e:
         print(f"Subprocess error: {e}")
         return None
+
 
 def get_latest_pip_version():
     """获取最新pip版本"""
@@ -300,14 +349,17 @@ def get_latest_pip_version():
         print(f"Request error: {e}")
         return None
 
+
 def update_pip():
     """更新pip到最新版本"""
     try:
-        subprocess.run(["python", "-m", "pip", "install", "--upgrade", "pip"], creationflags=subprocess.CREATE_NO_WINDOW)
+        subprocess.run(["python", "-m", "pip", "install", "--upgrade", "pip"],
+                       creationflags=subprocess.CREATE_NO_WINDOW)
         return True
     except subprocess.CalledProcessError as e:
         print(f"Subprocess error: {e}")
         return False
+
 
 def check_pip_version():
     """检查并更新pip版本"""
@@ -341,6 +393,7 @@ def check_pip_version():
         time.sleep(5)
         clear()
 
+
 def upgrade_pip():
     """启动pip版本检查线程"""
     try:
@@ -355,6 +408,7 @@ def upgrade_pip():
         time.sleep(5)
         clear()
 
+
 def install_package():
     """安装指定的Python包"""
     try:
@@ -363,8 +417,10 @@ def install_package():
 
         def install_package_thread():
             try:
-                result = subprocess.run(["python", "-m", "pip", "install", package_name], capture_output=True, text=True, creationflags=subprocess.CREATE_NO_WINDOW)
-                installed = subprocess.check_output(["python", "-m", "pip", "list", "--format=columns"], text=True, creationflags=subprocess.CREATE_NO_WINDOW)
+                result = subprocess.run(["python", "-m", "pip", "install", package_name], capture_output=True,
+                                        text=True, creationflags=subprocess.CREATE_NO_WINDOW)
+                installed = subprocess.check_output(["python", "-m", "pip", "list", "--format=columns"], text=True,
+                                                    creationflags=subprocess.CREATE_NO_WINDOW)
                 if "Successfully installed" in result.stdout:
                     package_label.config(text=f"Package '{package_name}' has been installed successfully!")
                     time.sleep(5)
@@ -392,6 +448,7 @@ def install_package():
         time.sleep(5)
         clear()
 
+
 def uninstall_package():
     """卸载指定的Python包"""
     try:
@@ -399,9 +456,11 @@ def uninstall_package():
         package_name = package_entry.get()
 
         try:
-            installed_packages = subprocess.check_output(["python", "-m", "pip", "list", "--format=columns"], text=True, creationflags=subprocess.CREATE_NO_WINDOW)
+            installed_packages = subprocess.check_output(["python", "-m", "pip", "list", "--format=columns"], text=True,
+                                                         creationflags=subprocess.CREATE_NO_WINDOW)
             if package_name.lower() in installed_packages.lower():
-                result = subprocess.run(["python", "-m", "pip", "uninstall", "-y", package_name], capture_output=True, text=True, creationflags=subprocess.CREATE_NO_WINDOW)
+                result = subprocess.run(["python", "-m", "pip", "uninstall", "-y", package_name], capture_output=True,
+                                        text=True, creationflags=subprocess.CREATE_NO_WINDOW)
                 if "Successfully uninstalled" in result.stdout:
                     package_label.config(text=f"Package '{package_name}' has been uninstalled successfully!")
                     time.sleep(5)
@@ -427,17 +486,19 @@ def uninstall_package():
         time.sleep(5)
         clear()
 
+
 def check_python_installation():
     """检查Python是否已安装"""
     try:
         subprocess.check_output(["python", "--version"], creationflags=subprocess.CREATE_NO_WINDOW)
-    except Exception as e:
+    except:
         status_label.config(text="Python is not installed.")
         pip_upgrade_button.config(state="disabled")
         install_button.config(state="disabled")
         uninstall_button.config(state="disabled")
         time.sleep(5)
         clear()
+
 
 def switch_theme():
     """切换主题"""
@@ -448,15 +509,17 @@ def switch_theme():
         sv_ttk.set_theme("light")
         save_theme("light")
 
+
 def save_theme(theme):
     """保存主题设置"""
-    with open(os.path.join(SAVED_DIR, "theme.txt"), "w") as a:
+    with open(os.path.join(config_path, "theme.txt"), "w") as a:
         a.write(theme)
+
 
 def load_theme():
     """加载主题设置"""
     try:
-        with open(os.path.join(SAVED_DIR, "theme.txt"), "r") as r:
+        with open(os.path.join(config_path, "theme.txt"), "r") as r:
             theme = r.read()
         if theme == "dark":
             switch.set(True)
@@ -464,8 +527,9 @@ def load_theme():
         elif theme == "light":
             switch.set(False)
             sv_ttk.set_theme("light")
-    except Exception:
+    except:
         sv_ttk.set_theme("light")
+
 
 def update():
     """检查更新"""
@@ -474,6 +538,7 @@ def update():
     myver = "1.1.0"
     if ver > myver:
         pass
+
 
 if __name__ == "__main__":
     if datetime.datetime.now() >= datetime.datetime(2025, 3, 13):
@@ -503,7 +568,7 @@ if __name__ == "__main__":
     # Python Download Frame
     version_label = ttk.Label(download_frame, text="Select Python Version:")
     version_label.grid(row=0, column=0, pady=5, sticky="e")
-    version_combobox = ttk.Combobox(download_frame, values=VERSIONS, state="readonly")
+    version_combobox = ttk.Combobox(download_frame, values=[''], state="readonly")
     version_combobox.grid(row=0, column=1, pady=5, padx=5, sticky="w")
     version_combobox.current(0)
 
@@ -523,8 +588,11 @@ if __name__ == "__main__":
     download_button = ttk.Button(download_frame, text="Download Selected Version", command=download_selected_version)
     download_button.grid(row=3, column=0, columnspan=3, pady=10, padx=5)
     cancel_button = ttk.Button(download_frame, text="Cancel Download", command=confirm_cancel_download)
-    cancel_button.grid(row=4, column=0, pady=10, padx=5,columnspan=3)
+    cancel_button.grid(row=4, column=0, pady=10, padx=5, columnspan=3)
     cancel_button.config(state="disabled")
+
+    version_reload_button = ttk.Button(download_frame, text="Reload", command=python_version_reload)
+    version_reload_button.grid(row=0, column=2, sticky="w")
 
     progress_bar = ttk.Progressbar(download_frame, orient='horizontal', length=300, mode='determinate')
     progress_bar.grid(row=5, column=0, columnspan=3, pady=10, padx=5)
