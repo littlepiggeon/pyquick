@@ -21,6 +21,8 @@ class Widget(QFrame):
 class start_pyquick(QFrame):
     def start(self):
         print("Button clicked")
+    def select_file(self):
+        pass
     def __init__(self, text: str,parent=None):
         super().__init__(parent=parent)
         self.hBoxLayout = QVBoxLayout(self)
@@ -28,7 +30,12 @@ class start_pyquick(QFrame):
         self.filepath=LineEdit(self)
         self.filepath.setFixedSize(500,30)
 
+        self.select_button=PushButton("Select File",self)
+        self.select_button.setFixedSize(200,30)
+        self.select_button.clicked.connect(self.start)
+
         self.start_botton = PushButton("Start pyquick", self)
+        self.start_botton.setFixedSize(200, 30)
         self.start_botton.clicked.connect(self.start)
 
         self.hBoxLayout.addWidget(self.filepath, 1, Qt.AlignCenter)
